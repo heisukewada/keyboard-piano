@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>キーボードピアノ</title>
+
+<style>
+body{
+    font-family:sans-serif;
+    text-align:center;
+    margin:30px;
+}
+
+h1{
+    margin-bottom:10px;
+}
+
+pre{
+    font-size:20px;
+    line-height:1.8;
+    background:#f5f5f5;
+    padding:15px;
+    display:inline-block;
+    text-align:left;
+}
+
+.info{
+    margin-top:20px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>キーボードピアノ</h1>
+
+<pre>
+A W S E D F T G Y H U J K O L P ;
+C C#D D#E F F#G G#A A#B C D D#E
+</pre>
+
+<div class="info">
+キーを押している間だけ音が鳴ります。<br>
+複数キー同時押しで和音も演奏できます。
+</div>
+
+<script>
+
+const AudioContext =
+    window.AudioContext || window.webkitAudioContext;
+
+const ctx = new AudioContext();
+
+const notes = {
+    'a':261.63,
+    'w':277.18,
+    's':293.66,
+    'e':311.13,
+    'd':329.63,
+
+    'f':349.23,
+    't':369.99,
+    'g':392.00,
+    'y':415.30,
+    'h':440.00,
+    'u':466.16,
+    'j':493.88,
+
+    'k':523.25,
+    'o':554.37,
+    'l':587.33,
+    'p':622.25,
+    ';':659.25
+};
+
+const activeNotes = {};
+
+function startNote(key){
+
+    if(activeNotes[key]) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "triangle";
+    osc.frequency.value = notes[key];
+
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(
+        0.2,
+        ctx.currentTime + 0.02
+    );
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+
+    activeNotes[key] = {
+        osc,
+        gain
+    };
+}
+
+function stopNote(key){
+
+    const note = activeNotes[key];
+    if(!note) return;
+
+    const now = ctx.currentTime;
+
+    note.gain.gain.cancelScheduledValues(now);
+    note.gain.gain.setValueAtTime(
+        note.gain.gain.value,
+        now
+    );
+
+    note.gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        now + 0.08
+    );
+
+    note.osc.stop(now + 0.1);
+
+    delete activeNotes[key];
+}
+
+document.addEventListener("keydown", async e => {
+
+    if(ctx.state === "suspended"){
+        await ctx.resume();
+    }
+
+    const key = e.key.toLowerCase();
+
+    if(notes[key]){
+        startNote(key);
+    }
+});
+
+document.addEventListener("keyup", e => {
+
+    const key = e.key.toLowerCase();
+
+    if(notes[key]){
+        stopNote(key);
+    }
+});
+
+window.addEventListener("blur", () => {
+
+    Object.keys(activeNotes).forEach(stopNote);
+
+});
+
+</script>
+
+</body>
+</html>
